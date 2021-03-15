@@ -10,6 +10,20 @@ import requests
 
 card_library = 'library'
 
+def pretty_time_delta(seconds):
+    seconds = int(seconds)
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    if days > 0:
+        return '%dd%dh%dm%ds' % (days, hours, minutes, seconds)
+    elif hours > 0:
+        return '%dh%dm%ds' % (hours, minutes, seconds)
+    elif minutes > 0:
+        return '%dm%ds' % (minutes, seconds)
+    else:
+        return '%ds' % (seconds,)
+
 def download_image(image_url, dest_path):
     response = requests.get(image_url, stream=True)
 
@@ -33,23 +47,44 @@ def load_json(json_file):
     print(f'{len(json_obj)} card objects loaded')
     return json_obj
 
-def download_images(json_obj):
-    for entry in json_obj[0:10]:
-        card_name = entry['name']
-        card_image_url = entry['image_uris']['normal'] # Download the "normal" card size
-        card_set_name = entry['set_name']
-        download_dir = os.path.join(card_library, card_set_name)
-        if not os.path.exists(download_dir):
-            os.mkdir(download_dir)
+def download_face(name, set_name, image_url, download_dir):
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir) # Creates parents too
 
-        download_path = os.path.join(download_dir, card_name + '.jpg')
-        if os.path.exists(download_path):
-            print(f'{card_name} ({card_set_name}) already exists at {download_path}.')
+    download_path = os.path.join(download_dir, name + '.jpg')
+    if os.path.exists(download_path):
+        print(f'{name} ({set_name}) already exists at {download_path}.')
+    else:
+        print(f'Downloading {name} ({set_name}) from {image_url} to {download_path}.')
+        download_image(image_url, download_path)
+        time.sleep(0.055) # Sleep for 55 milliseconds. See rate limiting here: https://scryfall.com/docs/api
+
+
+def download_images(json_obj):
+    if not os.path.exists(card_library):
+        os.mkdir(card_library)
+    for entry in json_obj[0:45]:
+        card_set_name = entry['set_name']
+        card_faces = entry.get('card_faces', None)
+        if card_faces:
+            download_dir = os.path.join(card_library, card_set_name, card_faces[0]['name'])
+            for index, face in enumerate(card_faces):
+                card_name = face['name']
+                # Append .back to card name if it has the same name as the front side
+                if index > 0 and card_name == card_faces[0]['name']:
+                    card_name += '.back'
+                card_image_url = face['image_uris']['normal'] # Download the "normal" card size
+                download_face(card_name, card_set_name, card_image_url, download_dir)
+
         else:
-            print(f'Downloading {card_name} ({card_set_name}) from {card_image_url} to {download_path}.')
-            download_image(card_image_url, download_path)
-            time.sleep(0.055) # Sleep for 55 milliseconds. See rate limiting here: https://scryfall.com/docs/api
+            card_name = entry['name']
+            card_image_url = entry['image_uris']['normal'] # Download the "normal" card size
+            download_dir = os.path.join(card_library, card_set_name)
+            download_face(card_name, card_set_name, card_image_url, download_dir)
 
 if __name__ == "__main__":
+    start = time.time()
     json_obj = load_json('oracle-cards-20210315090415.json')
     download_images(json_obj)
+    end = time.time()
+    print(f'Completed download in {pretty_time_delta(end - start)}.')

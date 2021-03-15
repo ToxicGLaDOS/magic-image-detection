@@ -1,0 +1,5 @@
+library/
+*.json
+*.jpg
+*.png
+*.swp

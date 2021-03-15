@@ -63,10 +63,10 @@ def download_face(name, set_name, image_url, download_dir):
 def download_images(json_obj):
     if not os.path.exists(card_library):
         os.mkdir(card_library)
-    for entry in json_obj[0:45]:
+    for entry in json_obj:
         card_set_name = entry['set_name']
-        card_faces = entry.get('card_faces', None)
-        if card_faces:
+        if entry.get('image_uris', None) == None:
+            card_faces = entry['card_faces']
             download_dir = os.path.join(card_library, card_set_name, card_faces[0]['name'])
             for index, face in enumerate(card_faces):
                 card_name = face['name']

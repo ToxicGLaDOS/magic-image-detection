@@ -5,7 +5,7 @@ import os
 import time
 import shutil
 import requests
-
+import urllib
 
 
 card_library = 'library'
@@ -51,7 +51,7 @@ def download_face(name, set_name, image_url, download_dir):
     if not os.path.exists(download_dir):
         os.makedirs(download_dir) # Creates parents too
 
-    download_path = os.path.join(download_dir, name + '.jpg')
+    download_path = os.path.join(download_dir, urllib.parse.quote_plus(name + '.jpg'))
     if os.path.exists(download_path):
         print(f'{name} ({set_name}) already exists at {download_path}.')
     else:

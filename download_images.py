@@ -65,9 +65,10 @@ def download_images(json_obj):
         os.mkdir(card_library)
     for entry in json_obj:
         card_set_name = entry['set_name']
+        # Double sided card
         if entry.get('image_uris', None) == None:
             card_faces = entry['card_faces']
-            download_dir = os.path.join(card_library, card_set_name, card_faces[0]['name'])
+            download_dir = os.path.join(card_library, card_set_name, urllib.parse.quote_plus(entry['name']))
             for index, face in enumerate(card_faces):
                 card_name = face['name']
                 # Append .back to card name if it has the same name as the front side
@@ -75,7 +76,7 @@ def download_images(json_obj):
                     card_name += '.back'
                 card_image_url = face['image_uris']['normal'] # Download the "normal" card size
                 download_face(card_name, card_set_name, card_image_url, download_dir)
-
+        # Single sided card
         else:
             card_name = entry['name']
             card_image_url = entry['image_uris']['normal'] # Download the "normal" card size

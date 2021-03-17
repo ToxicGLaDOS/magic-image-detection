@@ -180,7 +180,7 @@ def generate_db(hash_functions: list[HashFunction]):
     images_processed = 0
     for root, dirs, files in os.walk(library_path):
         total_images += len(files)
-    for set_name in os.listdir(library_path)[0:2]:
+    for set_name in os.listdir(library_path):
         now = time.time()
         delta_time = now - start_time
         fraction_progress = images_processed/total_images

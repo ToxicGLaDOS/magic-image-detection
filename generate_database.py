@@ -54,8 +54,9 @@ def splitall(path):
     return allparts
 
 def remove_extensions(path: str):
-    while '.' in path:
-        path = os.path.splitext(path)[0]
+    path = os.path.splitext(path)[0] # Pull off first extension
+    if '.back' in path:
+        path = os.path.splitext(path)[0] # Pull off .back
     return path
 
 class HashFunction(object):
@@ -108,6 +109,7 @@ def add_hash_functions(hash_functions: list[HashFunction]):
 def get_details_from_path(card_path):
     path_segments = splitall(card_path)
     set_name = path_segments[0]
+    set_name = urllib.parse.unquote_plus(set_name)
 
     card_name = path_segments[1]
     card_name = urllib.parse.unquote_plus(card_name) # URL decode file name
@@ -123,7 +125,7 @@ def get_card_id(card_path):
     for card_obj in scryfall_db:
         if card_obj['name'] == card_name and card_obj['set_name'] == set_name:
             return card_obj['id']
-    print(f"Couldn't find id for card {card_name} ({set_name}).")
+    print(f"Couldn't find id for card {card_name} ({set_name}) at path {card_path}.")
 
 def add_new_card(card_path, id):
     set_name, card_name, _ = get_details_from_path(card_path)

@@ -7,7 +7,7 @@ import numpy
 import json
 from typing import Union
 import hashlib
-
+import time
 
 def is_image(filename):
     f = filename.lower()
@@ -68,15 +68,16 @@ class HashResult(object):
             raise TypeError(f"Can't subtract {type(other)} from HashResult")
 
     def from_hex(hash_function, hex, card_id):
-        return HashResult(hash_function, imagehash.hex_to_hash(hex), card_id)
+        return HashResult(hash_function, imagehash.hex_to_flathash(hex, hash_function.hash_size), card_id)
 
 class HashFunction(object):
-    def __init__(self, function, *args, **kwargs):
+    def __init__(self, function, hs, *args, **kwargs):
         if function.__module__ == "__main__":
             self.name = f'{function.__name__}'
         else:
             self.name = f'{function.__module__}.{function.__name__}'
         self.function = function
+        self.hash_size = hs
         self.function_args = args
         self.function_kwargs = kwargs
         id_hash_input = str(self.name) + str(self.function_args) + str(self.function_kwargs)
@@ -129,6 +130,19 @@ class HashDelta(object):
         assert self.value <= value
         self.normalized_value = self.value / value # Puts it in range 0-1
 
+def pretty_time_delta(seconds):
+    seconds = int(seconds)
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    if days > 0:
+        return '%dd%dh%dm%ds' % (days, hours, minutes, seconds)
+    elif hours > 0:
+        return '%dh%dm%ds' % (hours, minutes, seconds)
+    elif minutes > 0:
+        return '%dm%ds' % (minutes, seconds)
+    else:
+        return '%ds' % (seconds,)
 
 
 # Get's HashFunction from hash dict data
@@ -137,11 +151,12 @@ def get_hash_function(hash: dict) -> HashFunction:
         split = hash['name'].split('.')
         module = globals()[split[0]]
         function = getattr(module, split[1])
+        hash_size = hash['hash_size']
         args = hash['args']
         kwargs = hash['kwargs']
     else:
         raise Exception("Hash function with no module not supported yet")
-    hash_function = HashFunction(function, *args, **kwargs)
+    hash_function = HashFunction(function, hash_size, *args, **kwargs)
     return hash_function
 
 # Get's all the HashFunctions from the database
@@ -209,10 +224,25 @@ def compare_hashes(reference_hashes: list[HashResult], hash_functions: list[Hash
     card_objs_dict = json_db['cards']
     multi_hash_deltas = []
 
+    rh_time = 0
+    hr_time = 0
+    nhd_time = 0
+
     for hash_function in hash_functions:
+        start_rh = time.time()
         reference_hash = get_hash_result_from_list_by_id(reference_hashes, hash_function.id)
+        end_rh = time.time()
+        rh_time += end_rh - start_rh
+
+        start_hr = time.time()
         hash_results = get_hash_results_from_db(hash_function, card_objs_dict)
+        end_hr = time.time()
+        hr_time += end_hr - start_hr
+
+        start_nhd = time.time()
         normalized_hash_deltas = get_normalized_hash_deltas(reference_hash, hash_results)
+        end_nhd = time.time()
+        nhd_time += end_nhd - start_nhd
         # On first pass just add the normalized hash deltas to the list
         if len(multi_hash_deltas) == 0:
             multi_hash_deltas.extend(normalized_hash_deltas)
@@ -220,11 +250,22 @@ def compare_hashes(reference_hashes: list[HashResult], hash_functions: list[Hash
             multi_hash_deltas = get_sum_lists(multi_hash_deltas, normalized_hash_deltas)
 
 
+    multi_hash_deltas.sort(key=lambda mhd: mhd.sum_normalized_deltas)
+    print([(mhd.sum_normalized_deltas, mhd.lhs_card_id, mhd.rhs_card_id) for mhd in multi_hash_deltas[0:10]])
+    print()
+    print()
+    print(f'Time spent obtaining reference hash: {rh_time}')
+    print(f'Time spent grabbing hash results from database: {hr_time}')
+    print(f'Time spent normalizing hash deltas: {nhd_time}')
+
 if __name__ == "__main__":
     test_image = Image.open('heliods_pilgrim.jpg')
     test_image = test_image.rotate(-90, expand=True)
     test_image = test_image.resize((488, 680))
 
+    start = time.time()
     hash_functions = get_hash_functions(db)
     reference_hashes = get_reference_hashes(test_image, "reference_card", hash_functions)
     compare_hashes(reference_hashes, hash_functions, db)
+    end = time.time()
+    print(pretty_time_delta(end - start))

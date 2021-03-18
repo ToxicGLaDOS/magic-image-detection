@@ -60,12 +60,14 @@ def remove_extensions(path: str):
     return path
 
 class HashFunction(object):
-    def __init__(self, function, *args, **kwargs):
+    # We use the name hs instead of a better one to avoid collisions with **kwargs
+    def __init__(self, function, hs, *args, **kwargs):
         if function.__module__ == "__main__":
             self.name = f'{function.__name__}'
         else:
             self.name = f'{function.__module__}.{function.__name__}'
         self.function = function
+        self.hash_size = hs
         self.function_args = args
         self.function_kwargs = kwargs
         id_hash_input = str(self.name) + str(self.function_args) + str(self.function_kwargs)
@@ -78,6 +80,7 @@ class HashFunction(object):
     def serialize(self):
         return {
             'name': self.name,
+            'hash_size': self.hash_size,
             'args': self.function_args,
             'kwargs': self.function_kwargs,
             'id': self.id
@@ -87,11 +90,14 @@ class HashFunction(object):
 
 def create_hash_functions():
     hash_functions = []
-    for func in [imagehash.phash, imagehash.average_hash, imagehash.whash, imagehash.colorhash, imagehash.dhash, imagehash.dhash_vertical]:
-        hash_function = HashFunction(func)
+    for func in [imagehash.phash, imagehash.average_hash, imagehash.whash, imagehash.dhash, imagehash.dhash_vertical]:
+        hash_function = HashFunction(func, 8) # 8 is default for these hashes
         hash_functions.append(hash_function)
 
-    h = HashFunction(imagehash.phash, hash_size=10)
+    h = HashFunction(imagehash.colorhash, 3) # 3 is default for colorhash
+    hash_functions.append(h)
+
+    h = HashFunction(imagehash.phash, 10, hash_size=10)
     hash_functions.append(h)
     return hash_functions
 

@@ -85,8 +85,22 @@ def download_images(json_obj):
             download_face(card_name, card_set_name, card_image_url, download_dir)
 
 if __name__ == "__main__":
+    json_obj = None
+    for file in os.listdir():
+        if file.startswith("oracle-cards-") and file.endswith(".json"):
+            try:
+                json_obj = load_json(file)
+                print("Loaded JSON from file " + file)
+            except:
+                pass
+    if not json_obj:
+        print("Loading JSON from scryfall API")
+        res = requests.get('https://api.scryfall.com/bulk-data').json()
+        for item in res["data"]:
+            if item["type"] == "oracle_cards":
+                json_obj = requests.get(item["download_uri"]).json()
+
     start = time.time()
-    json_obj = load_json('oracle-cards-20210315090415.json')
     download_images(json_obj)
     end = time.time()
     print(f'Completed download in {pretty_time_delta(end - start)}.')
